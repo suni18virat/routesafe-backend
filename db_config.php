@@ -23,6 +23,7 @@ if (php_sapi_name() === 'cli') {
     }
 }
 
+mysqli_report(MYSQLI_REPORT_OFF);
 $con = null;
 
 if ($isLocal) {
