@@ -47,7 +47,7 @@ if ($isLocal) {
     // ==========================================
     $db_host = 'bzvrotxo7tt4htiiqyj8-mysql.services.clever-cloud.com';
     $db_user = 'uubpzisqyra5om4j';
-    $db_pass = 'uubpzisqyra5om4j';
+    $db_pass = '4lfqFcwEaExSMLbb337T';
     $db_name = 'bzvrotxo7tt4htiiqyj8';
     $db_port = 3306;
     
