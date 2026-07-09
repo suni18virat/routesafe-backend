@@ -138,9 +138,9 @@ foreach ($tables as $tblName => $sql) {
 }
 
 // Ensure default admin user is present
-$adminCheckQuery = "SELECT id FROM admin WHERE username = 'admin' LIMIT 1";
+$adminCheckQuery = "SELECT id FROM admin WHERE username = 'Suni@18' LIMIT 1";
 $adminCheckResult = mysqli_query($con, $adminCheckQuery);
 if ($adminCheckResult && mysqli_num_rows($adminCheckResult) === 0) {
-    $insertAdminQuery = "INSERT INTO admin (username, password) VALUES ('admin', 'admin')";
+    $insertAdminQuery = "INSERT INTO admin (username, password) VALUES ('Suni@18', 'Suni@20')";
     mysqli_query($con, $insertAdminQuery);
 }

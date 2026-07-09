@@ -351,6 +351,80 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 mysqli_close($con);
                 break;
 
+            case "forgotPasswordUser":
+                $mobile = isset($_POST['mobile']) ? trim($_POST['mobile']) : '';
+                $email = isset($_POST['email']) ? trim($_POST['email']) : '';
+                $new_password = isset($_POST['new_password']) ? trim($_POST['new_password']) : '';
+                if (empty($mobile) || empty($email) || empty($new_password)) {
+                    $jsonInput = json_decode(file_get_contents('php://input'), true);
+                    $mobile = isset($jsonInput['mobile']) ? trim($jsonInput['mobile']) : '';
+                    $email = isset($jsonInput['email']) ? trim($jsonInput['email']) : '';
+                    $new_password = isset($jsonInput['new_password']) ? trim($jsonInput['new_password']) : '';
+                }
+                $mobile = mysqli_real_escape_string($con, $mobile);
+                $email = mysqli_real_escape_string($con, $email);
+                $new_password = mysqli_real_escape_string($con, $new_password);
+
+                if (empty($mobile) || empty($email) || empty($new_password)) {
+                    echo json_encode(["success" => false, "error" => 1, "message" => "All fields are required."]);
+                    mysqli_close($con);
+                    exit;
+                }
+
+                $check_query = "SELECT id FROM user WHERE mobile = '$mobile' AND email = '$email' LIMIT 1";
+                $check_result = mysqli_query($con, $check_query);
+                if (mysqli_num_rows($check_result) == 0) {
+                    echo json_encode(["success" => false, "error" => 1, "message" => "Account not found with matching mobile and email."]);
+                } else {
+                    $update_query = "UPDATE user SET password = '$new_password' WHERE mobile = '$mobile'";
+                    if (mysqli_query($con, $update_query)) {
+                        echo json_encode(["success" => true, "error" => 0, "message" => "Password updated successfully."]);
+                    } else {
+                        echo json_encode(["success" => false, "error" => 1, "message" => "Failed to reset password."]);
+                    }
+                }
+                mysqli_close($con);
+                break;
+
+            case "forgotPasswordAdmin":
+                $username = isset($_POST['username']) ? trim($_POST['username']) : '';
+                $security_code = isset($_POST['security_code']) ? trim($_POST['security_code']) : '';
+                $new_password = isset($_POST['new_password']) ? trim($_POST['new_password']) : '';
+                if (empty($username) || empty($security_code) || empty($new_password)) {
+                    $jsonInput = json_decode(file_get_contents('php://input'), true);
+                    $username = isset($jsonInput['username']) ? trim($jsonInput['username']) : '';
+                    $security_code = isset($jsonInput['security_code']) ? trim($jsonInput['security_code']) : '';
+                    $new_password = isset($jsonInput['new_password']) ? trim($jsonInput['new_password']) : '';
+                }
+                $username = mysqli_real_escape_string($con, $username);
+                $security_code = mysqli_real_escape_string($con, $security_code);
+                $new_password = mysqli_real_escape_string($con, $new_password);
+
+                if (empty($username) || empty($security_code) || empty($new_password)) {
+                    echo json_encode(["success" => false, "error" => 1, "message" => "All fields are required."]);
+                    mysqli_close($con);
+                    exit;
+                }
+
+                if ($security_code !== 'Suni@Reset' && $security_code !== 'ROADCARE-ADMIN-RESET') {
+                    echo json_encode(["success" => false, "error" => 1, "message" => "Invalid security recovery code."]);
+                } else {
+                    $check_query = "SELECT id FROM admin WHERE username = '$username' LIMIT 1";
+                    $check_result = mysqli_query($con, $check_query);
+                    if (mysqli_num_rows($check_result) == 0) {
+                        echo json_encode(["success" => false, "error" => 1, "message" => "Admin user not found."]);
+                    } else {
+                        $update_query = "UPDATE admin SET password = '$new_password' WHERE username = '$username'";
+                        if (mysqli_query($con, $update_query)) {
+                            echo json_encode(["success" => true, "error" => 0, "message" => "Admin password reset successful."]);
+                        } else {
+                            echo json_encode(["success" => false, "error" => 1, "message" => "Failed to reset password."]);
+                        }
+                    }
+                }
+                mysqli_close($con);
+                break;
+
             case "getUnassignedPotholes":
                 $sql = "SELECT cid AS id, latitude, longitude FROM complaint WHERE teamid IS NULL OR teamid = '' OR status = 'Pending'";
                 $result = mysqli_query($con, $sql);
@@ -446,7 +520,7 @@ case "getTaskStatus":
     mysqli_close($con);
     break;
 case "getComplaints":
-    $query = "SELECT cid AS id, description, status, image, completedimage, datetime AS date FROM complaint ORDER BY cid DESC";
+    $query = "SELECT cid AS id, description, status, image, completedimage, datetime AS date, latitude, longitude, completed_latitude, completed_longitude, remarks, admin_remarks FROM complaint ORDER BY cid DESC";
     $result = mysqli_query($con, $query);
     $incidents = [];
     if ($result) {
