@@ -22,7 +22,12 @@ if ($check_col && mysqli_num_rows($check_col) == 0) {
 }
 
 // PASTE IT HERE:
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+$protocol = (
+    (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+    ($_SERVER['SERVER_PORT'] == 443) ||
+    (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+    (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on')
+) ? "https://" : "http://";
 $base = $protocol . $_SERVER['HTTP_HOST'] . "/uploads/";
 $uploadDir = __DIR__ . '/uploads/';
 if (!is_dir($uploadDir)) {
