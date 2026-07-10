@@ -483,7 +483,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 case "getTaskStatus":
     $sql = "SELECT c.cid AS id, c.description, c.latitude, c.longitude, c.datetime AS date_added, 
                    c.status, c.image, c.completedimage, c.completed_latitude, c.completed_longitude,
-                   c.remarks AS team_remarks, c.admin_remarks,
+                   c.remarks AS team_remarks, c.admin_remarks, c.completeddatetime,
                    IFNULL(u.name, 'No Reporter') AS reporter_name, 
                    IFNULL(u.mobile, 'N/A') AS reporter_phone,
                    IFNULL(t.name, 'Unassigned') AS team_name,
@@ -520,7 +520,12 @@ case "getTaskStatus":
     mysqli_close($con);
     break;
 case "getComplaints":
-    $query = "SELECT cid AS id, description, status, image, completedimage, datetime AS date, latitude, longitude, completed_latitude, completed_longitude, remarks, admin_remarks FROM complaint ORDER BY cid DESC";
+    $uid = isset($_POST['uid']) ? mysqli_real_escape_string($con, trim($_POST['uid'])) : '';
+    if (!empty($uid)) {
+        $query = "SELECT cid AS id, description, status, image, completedimage, datetime AS date, latitude, longitude, completed_latitude, completed_longitude, remarks, admin_remarks, uid, completeddatetime FROM complaint WHERE uid = '$uid' ORDER BY cid DESC";
+    } else {
+        $query = "SELECT cid AS id, description, status, image, completedimage, datetime AS date, latitude, longitude, completed_latitude, completed_longitude, remarks, admin_remarks, uid, completeddatetime FROM complaint ORDER BY cid DESC";
+    }
     $result = mysqli_query($con, $query);
     $incidents = [];
     if ($result) {
@@ -645,7 +650,12 @@ case "getComplaints":
 
             // 15. PUBLIC COMPLAINTS PAGE RESOLVER
             case "getComplaints":
-    $query = "SELECT cid AS id, description, status, image, completedimage, remarks, admin_remarks, datetime AS date FROM complaint ORDER BY cid DESC";
+    $uid = isset($_POST['uid']) ? mysqli_real_escape_string($con, trim($_POST['uid'])) : '';
+    if (!empty($uid)) {
+        $query = "SELECT cid AS id, description, status, image, completedimage, remarks, admin_remarks, datetime AS date, uid, completeddatetime FROM complaint WHERE uid = '$uid' ORDER BY cid DESC";
+    } else {
+        $query = "SELECT cid AS id, description, status, image, completedimage, remarks, admin_remarks, datetime AS date, uid, completeddatetime FROM complaint ORDER BY cid DESC";
+    }
     $result = mysqli_query($con, $query);
     $incidents = [];
     if ($result) {
