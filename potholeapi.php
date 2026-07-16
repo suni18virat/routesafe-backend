@@ -623,12 +623,12 @@ case "getComplaints":
                 $fake_reason = "";
 
                 // 1. Check for real On-Device AI Vision flag
-                if (strpos($desc_lower, '[ai_detected_fake:') !== false) {
+                $is_ai_fake_flag = isset($_POST['is_ai_fake']) ? $_POST['is_ai_fake'] : "0";
+                $ai_detected_label = isset($_POST['ai_detected_label']) ? mysqli_real_escape_string($con, $_POST['ai_detected_label']) : "Unknown Object";
+                
+                if ($is_ai_fake_flag === "1") {
                     $is_fake = true;
-                    // Extract the label that the on-device AI found (e.g. "laptop computer")
-                    preg_match('/\[ai_detected_fake:\s*(.*?)\]/i', $description, $matches);
-                    $detected_label = isset($matches[1]) ? $matches[1] : "fake image";
-                    $fake_reason = "On-Device AI detected a non-road object: $detected_label";
+                    $fake_reason = "On-Device AI detected a non-road object: $ai_detected_label";
                 }
 
                 // 2. Check for suspicious keywords in text (laptop, screen, test, fake, etc)
