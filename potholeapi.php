@@ -647,12 +647,7 @@ case "getComplaints":
                         $fake_reason = "No valid road damage found.";
                     }
                 }
-
-                // 3. Description length check
-                if (!$is_fake && strlen($desc_lower) < 10) {
-                    $is_fake = true;
-                    $fake_reason = "Description too short.";
-                }
+                // (Description length check removed as requested)
 
                 if ($is_fake) {
                     $status = 'Rejected';
