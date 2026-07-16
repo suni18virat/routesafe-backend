@@ -622,13 +622,24 @@ case "getComplaints":
                 $is_fake = false;
                 $fake_reason = "";
 
-                // 1. Check for suspicious keywords (laptop, screen, test, fake, etc)
-                $suspicious_words = ['fake', 'test', 'laptop', 'screen', 'monitor', 'computer', 'display', 'keyboard', 'phone'];
-                foreach ($suspicious_words as $word) {
-                    if (strpos($desc_lower, $word) !== false) {
-                        $is_fake = true;
-                        $fake_reason = "Fake report detected.";
-                        break;
+                // 1. Check for real On-Device AI Vision flag
+                if (strpos($desc_lower, '[ai_detected_fake:') !== false) {
+                    $is_fake = true;
+                    // Extract the label that the on-device AI found (e.g. "laptop computer")
+                    preg_match('/\[ai_detected_fake:\s*(.*?)\]/i', $description, $matches);
+                    $detected_label = isset($matches[1]) ? $matches[1] : "fake image";
+                    $fake_reason = "On-Device AI detected a non-road object: $detected_label";
+                }
+
+                // 2. Check for suspicious keywords in text (laptop, screen, test, fake, etc)
+                if (!$is_fake) {
+                    $suspicious_words = ['fake', 'test', 'laptop', 'screen', 'monitor', 'computer', 'display', 'keyboard', 'phone'];
+                    foreach ($suspicious_words as $word) {
+                        if (strpos($desc_lower, $word) !== false) {
+                            $is_fake = true;
+                            $fake_reason = "Fake report detected.";
+                            break;
+                        }
                     }
                 }
 
