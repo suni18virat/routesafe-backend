@@ -628,7 +628,7 @@ case "getComplaints":
                 
                 if ($is_ai_fake_flag === "1") {
                     $is_fake = true;
-                    $fake_reason = "On-Device AI detected a non-road object: $ai_detected_label";
+                    $fake_reason = "Invalid Image Uploaded";
                 }
 
                 // 2. Check for suspicious keywords in text (laptop, screen, test, fake, etc)
