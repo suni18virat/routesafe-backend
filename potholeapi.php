@@ -627,7 +627,7 @@ case "getComplaints":
                 foreach ($suspicious_words as $word) {
                     if (strpos($desc_lower, $word) !== false) {
                         $is_fake = true;
-                        $fake_reason = "Image/Report appears to contain non-road elements ($word)";
+                        $fake_reason = "System has detected this as a fake report.";
                         break;
                     }
                 }
@@ -644,19 +644,19 @@ case "getComplaints":
                     }
                     if (!$has_valid) {
                         $is_fake = true;
-                        $fake_reason = "Report does not describe physical road damage";
+                        $fake_reason = "Report does not contain valid elements of physical road damage.";
                     }
                 }
 
                 // 3. Description length check
                 if (!$is_fake && strlen($desc_lower) < 10) {
                     $is_fake = true;
-                    $fake_reason = "Description too short to verify authenticity";
+                    $fake_reason = "Description is too short to verify authenticity.";
                 }
 
                 if ($is_fake) {
                     $status = 'Rejected';
-                    $admin_remarks = 'AI Detection: ' . $fake_reason;
+                    $admin_remarks = 'Auto-Rejected: ' . $fake_reason;
                 }
                 
                 $query = "INSERT INTO complaint (image, description, uid, latitude, longitude, datetime, status, admin_remarks) 
