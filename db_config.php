@@ -118,7 +118,8 @@ $tables = [
         admin_remarks TEXT NULL,
         completed_latitude VARCHAR(50) NULL,
         completed_longitude VARCHAR(50) NULL,
-        completeddatetime VARCHAR(100) NULL
+        completeddatetime VARCHAR(100) NULL,
+        assigned_date DATETIME NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
 
     "support_message" => "CREATE TABLE IF NOT EXISTS support_message (

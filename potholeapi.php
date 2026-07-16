@@ -21,6 +21,11 @@ if ($check_col && mysqli_num_rows($check_col) == 0) {
     mysqli_query($con, "UPDATE team SET username = email");
 }
 
+$check_col2 = mysqli_query($con, "SHOW COLUMNS FROM complaint LIKE 'assigned_date'");
+if ($check_col2 && mysqli_num_rows($check_col2) == 0) {
+    mysqli_query($con, "ALTER TABLE complaint ADD COLUMN assigned_date DATETIME NULL");
+}
+
 // PASTE IT HERE:
 $protocol = (
     (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
@@ -142,6 +147,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $tag = isset($_POST['tag']) ? $_POST['tag'] : (isset($_POST['action']) ? $_POST['action'] : '');
     
     if ($tag != '') {
+        // Auto-reassign logic: Check for complaints older than 10 days that are still in progress
+        $expired_query = "SELECT cid, teamid FROM complaint WHERE status = 'In Progress' AND assigned_date < NOW() - INTERVAL 10 DAY";
+        $expired_result = mysqli_query($con, $expired_query);
+        if ($expired_result && mysqli_num_rows($expired_result) > 0) {
+            while ($row = mysqli_fetch_assoc($expired_result)) {
+                $cid = $row['cid'];
+                $old_teamid = $row['teamid'];
+                
+                // Find a random different team
+                $new_team_query = "SELECT id FROM team WHERE id != '$old_teamid' ORDER BY RAND() LIMIT 1";
+                $new_team_result = mysqli_query($con, $new_team_query);
+                if ($new_team_result && mysqli_num_rows($new_team_result) > 0) {
+                    $new_team_row = mysqli_fetch_assoc($new_team_result);
+                    $new_teamid = $new_team_row['id'];
+                    
+                    // Reassign
+                    mysqli_query($con, "UPDATE complaint SET teamid = '$new_teamid', assigned_date = NOW(), admin_remarks = CONCAT(IFNULL(admin_remarks, ''), '\\nAuto-reassigned from team ', '$old_teamid', ' due to 10-day timeline expiration.') WHERE cid = '$cid'");
+                }
+            }
+        }
+
         switch ($tag) {
             
             case "adminlogin":
@@ -442,7 +468,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             case "assignTask":
                 $cid = isset($_POST['pothole_id']) ? mysqli_real_escape_string($con, $_POST['pothole_id']) : '';
                 $teamid = isset($_POST['team_id']) ? mysqli_real_escape_string($con, $_POST['team_id']) : '';
-                $query = "UPDATE complaint SET teamid = '$teamid', status = 'In Progress' WHERE cid = '$cid'";
+                $query = "UPDATE complaint SET teamid = '$teamid', status = 'In Progress', assigned_date = NOW() WHERE cid = '$cid'";
                 echo json_encode(["success" => mysqli_query($con, $query), "status" => "success", "error" => 0]);
                 mysqli_close($con);
                 break;
@@ -566,13 +592,14 @@ case "getComplaints":
                 if (empty($imageName)) {
                     $post_image = isset($_POST['image']) ? $_POST['image'] : '';
                     if (!empty($post_image)) {
-                        if (preg_match('/^data:image\/(\w+);base64,/', $post_image, $type)) {
+                        if (preg_match('/^data:(image|video)\/(\w+);base64,/', $post_image, $matches)) {
                             $post_image = substr($post_image, strpos($post_image, ',') + 1);
-                            $type = strtolower($type[1]);
-                            if (in_array($type, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                            $type = strtolower($matches[2]);
+                            if (in_array($type, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm'])) {
                                 $decoded = base64_decode($post_image);
                                 if ($decoded !== false) {
-                                    $imageName = "img_" . time() . "_" . uniqid() . "." . $type;
+                                    $prefix = ($matches[1] == 'video') ? "vid_" : "img_";
+                                    $imageName = $prefix . time() . "_" . uniqid() . "." . $type;
                                     file_put_contents($uploadDir . $imageName, $decoded);
                                 }
                             }
@@ -587,8 +614,53 @@ case "getComplaints":
                 $longitude   = isset($_POST['longitude']) ? mysqli_real_escape_string($con, $_POST['longitude']) : '';
                 $datetime    = isset($_POST['datetime']) ? mysqli_real_escape_string($con, $_POST['datetime']) : '';
                 
-                $query = "INSERT INTO complaint (image, description, uid, latitude, longitude, datetime, status) 
-                          VALUES ('$imageName', '$description', '$uid', '$latitude', '$longitude', '$datetime', 'Pending')";
+                // STRICT MOCK AI VALIDATION (Since no Vision API key is provided)
+                $status = 'Pending';
+                $admin_remarks = '';
+                
+                $desc_lower = strtolower($description);
+                $is_fake = false;
+                $fake_reason = "";
+
+                // 1. Check for suspicious keywords (laptop, screen, test, fake, etc)
+                $suspicious_words = ['fake', 'test', 'laptop', 'screen', 'monitor', 'computer', 'display', 'keyboard', 'phone'];
+                foreach ($suspicious_words as $word) {
+                    if (strpos($desc_lower, $word) !== false) {
+                        $is_fake = true;
+                        $fake_reason = "Image/Report appears to contain non-road elements ($word)";
+                        break;
+                    }
+                }
+
+                // 2. Check for required valid keywords (road, pothole, damage, etc)
+                if (!$is_fake) {
+                    $valid_words = ['road', 'pothole', 'damage', 'crack', 'street', 'broken', 'hole', 'asphalt'];
+                    $has_valid = false;
+                    foreach ($valid_words as $word) {
+                        if (strpos($desc_lower, $word) !== false) {
+                            $has_valid = true;
+                            break;
+                        }
+                    }
+                    if (!$has_valid) {
+                        $is_fake = true;
+                        $fake_reason = "Report does not describe physical road damage";
+                    }
+                }
+
+                // 3. Description length check
+                if (!$is_fake && strlen($desc_lower) < 10) {
+                    $is_fake = true;
+                    $fake_reason = "Description too short to verify authenticity";
+                }
+
+                if ($is_fake) {
+                    $status = 'Rejected';
+                    $admin_remarks = 'AI Detection: ' . $fake_reason;
+                }
+                
+                $query = "INSERT INTO complaint (image, description, uid, latitude, longitude, datetime, status, admin_remarks) 
+                          VALUES ('$imageName', '$description', '$uid', '$latitude', '$longitude', '$datetime', '$status', '$admin_remarks')";
                 if (mysqli_query($con, $query)) {
                     echo json_encode(["error" => 0, "success" => true, "message" => "Complaint posted successfully!"]);
                 } else {
@@ -628,13 +700,14 @@ case "getComplaints":
                 $completed_image = isset($_POST['completed_image']) ? $_POST['completed_image'] : '';
                 $imageName = "";
                 if (!empty($completed_image)) {
-                    if (preg_match('/^data:image\/(\w+);base64,/', $completed_image, $type)) {
+                    if (preg_match('/^data:(image|video)\/(\w+);base64,/', $completed_image, $matches)) {
                         $completed_image = substr($completed_image, strpos($completed_image, ',') + 1);
-                        $type = strtolower($type[1]);
-                        if (in_array($type, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                        $type = strtolower($matches[2]);
+                        if (in_array($type, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm'])) {
                             $decoded = base64_decode($completed_image);
                             if ($decoded !== false) {
-                                $imageName = "resolved_" . time() . "_" . uniqid() . "." . $type;
+                                $prefix = ($matches[1] == 'video') ? "vid_resolved_" : "resolved_";
+                                $imageName = $prefix . time() . "_" . uniqid() . "." . $type;
                                 file_put_contents($uploadDir . $imageName, $decoded);
                             }
                         }
@@ -692,7 +765,7 @@ case "getComplaints":
                 $email = isset($_POST['email']) ? mysqli_real_escape_string($con, trim($_POST['email'])) : '';
                 $sql = "SELECT c.cid, c.image, c.description, c.latitude, c.longitude, c.datetime, c.status, 
                                IFNULL(u.name, 'No Reporter') AS name, IFNULL(u.mobile, 'N/A') AS mobile, IFNULL(u.email, 'N/A') AS email,
-                               c.remarks, c.admin_remarks, c.completedimage, c.completeddatetime, c.teamid 
+                               c.remarks, c.admin_remarks, c.completedimage, c.completeddatetime, c.teamid, c.assigned_date 
                         FROM complaint c 
                         LEFT JOIN user u ON c.uid = u.id 
                         LEFT JOIN team t ON c.teamid = t.id
@@ -809,9 +882,34 @@ case "getComplaints":
                     mysqli_close($con);
                     exit;
                 }
-                $query = "UPDATE support_message SET reply = '$reply' WHERE id = '$id'";
+                $time = date('Y-m-d H:i:s');
+                $reply_with_time = $reply . '|||' . $time;
+                $query = "UPDATE support_message SET reply = '$reply_with_time' WHERE id = '$id'";
                 if (mysqli_query($con, $query)) {
                     echo json_encode(["error" => 0, "success" => true, "message" => "Replied successfully"]);
+                } else {
+                    echo json_encode(["error" => 1, "success" => false, "message" => mysqli_error($con)]);
+                }
+                mysqli_close($con);
+                break;
+
+            case "sendAdminMessage":
+                $user_mobile = isset($_POST['user_mobile']) ? mysqli_real_escape_string($con, trim($_POST['user_mobile'])) : '';
+                $message = isset($_POST['message']) ? mysqli_real_escape_string($con, trim($_POST['message'])) : '';
+                if (empty($user_mobile) || empty($message)) {
+                    echo json_encode(["error" => 1, "success" => false, "message" => "Fields cannot be blank"]);
+                    mysqli_close($con);
+                    exit;
+                }
+                
+                // For admin initiated messages, we leave 'message' empty (so user didn't say it)
+                // and we put the admin's text in 'reply' with the timestamp format expected.
+                $time = date('Y-m-d H:i:s');
+                $reply_with_time = $message . '|||' . $time;
+                
+                $query = "INSERT INTO support_message (user_mobile, message, reply) VALUES ('$user_mobile', '', '$reply_with_time')";
+                if (mysqli_query($con, $query)) {
+                    echo json_encode(["error" => 0, "success" => true, "message" => "Message sent successfully"]);
                 } else {
                     echo json_encode(["error" => 1, "success" => false, "message" => mysqli_error($con)]);
                 }
