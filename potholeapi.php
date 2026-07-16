@@ -627,7 +627,7 @@ case "getComplaints":
                 foreach ($suspicious_words as $word) {
                     if (strpos($desc_lower, $word) !== false) {
                         $is_fake = true;
-                        $fake_reason = "System has detected this as a fake report.";
+                        $fake_reason = "Fake report detected.";
                         break;
                     }
                 }
@@ -644,14 +644,14 @@ case "getComplaints":
                     }
                     if (!$has_valid) {
                         $is_fake = true;
-                        $fake_reason = "Report does not contain valid elements of physical road damage.";
+                        $fake_reason = "No valid road damage found.";
                     }
                 }
 
                 // 3. Description length check
                 if (!$is_fake && strlen($desc_lower) < 10) {
                     $is_fake = true;
-                    $fake_reason = "Description is too short to verify authenticity.";
+                    $fake_reason = "Description too short.";
                 }
 
                 if ($is_fake) {
