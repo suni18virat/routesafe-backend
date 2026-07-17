@@ -7,6 +7,11 @@ RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli
 COPY potholeapi.php /var/www/html/potholeapi.php
 COPY db_config.php /var/www/html/db_config.php
 
+# Create uploads directory and set ownership/permissions for Apache www-data user
+RUN mkdir -p /var/www/html/uploads && \
+    chown -R www-data:www-data /var/www/html && \
+    chmod -R 775 /var/www/html/uploads
+
 # Enable Apache rewrite module
 RUN a2enmod rewrite
 
