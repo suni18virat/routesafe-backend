@@ -583,6 +583,48 @@ case "getComplaints":
     }
     mysqli_close($con);
     break;
+
+case "getComplaintsByUser":
+    $mobile = isset($_POST['mobile']) ? mysqli_real_escape_string($con, trim($_POST['mobile'])) : '';
+    if (empty($mobile)) {
+        echo json_encode(["success" => false, "error" => 1, "message" => "Mobile number required", "incidents" => []]);
+        mysqli_close($con);
+        exit;
+    }
+    $query = "SELECT c.cid AS id, c.description, c.status, c.image, c.completedimage, c.datetime AS date, 
+                     c.latitude, c.longitude, c.completed_latitude, c.completed_longitude, 
+                     c.remarks, c.admin_remarks, c.uid, c.completeddatetime 
+              FROM complaint c
+              INNER JOIN user u ON c.uid = u.id
+              WHERE u.mobile = '$mobile' OR u.email = '$mobile'
+              ORDER BY c.cid DESC";
+    $result = mysqli_query($con, $query);
+    $incidents = [];
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            if (!empty($row['image'])) {
+                if (!preg_match('/^data:/i', $row['image']) && !preg_match('/^https?:\/\//i', $row['image'])) {
+                    $row['image'] = $base . basename($row['image']);
+                }
+            } else {
+                $row['image'] = "";
+            }
+            if (!empty($row['completedimage'])) {
+                if (!preg_match('/^data:/i', $row['completedimage']) && !preg_match('/^https?:\/\//i', $row['completedimage'])) {
+                    $row['completedimage'] = $base . basename($row['completedimage']);
+                }
+            } else {
+                $row['completedimage'] = "";
+            }
+            $incidents[] = $row;
+        }
+        echo json_encode(["success" => true, "incidents" => $incidents, "complaints" => $incidents]);
+    } else {
+        echo json_encode(["success" => false, "incidents" => [], "complaints" => []]);
+    }
+    mysqli_close($con);
+    break;
+
             case "postcomplaint":
                 $imageName = "";
                 if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
