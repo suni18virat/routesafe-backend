@@ -907,7 +907,7 @@ case "getComplaintsByUser":
                                      END AS sender_type
                               FROM support_message s 
                               LEFT JOIN user u ON s.user_mobile = u.mobile 
-                              LEFT JOIN team t ON s.user_mobile = t.mobile 
+                              LEFT JOIN team t ON (s.user_mobile = t.mobile OR s.user_mobile = t.username OR s.user_mobile = t.email)
                               ORDER BY s.created_at DESC";
                 }
                 $result = mysqli_query($con, $query);
