@@ -208,7 +208,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 } else {
                     $row = mysqli_fetch_assoc($check_result);
                     if ($row['password'] === $password) {
-                        echo json_encode(["success" => true, "error" => 0, "message" => "Welcome Field Contractor"]);
+                        $row["error"] = 0;
+                        $row["success"] = true;
+                        $row["message"] = "Welcome Field Contractor";
+                        $row["team_id"] = $row["id"];
+                        echo json_encode($row);
                     } else {
                         echo json_encode(["success" => false, "error" => 1, "message" => "Incorrect password"]);
                     }
