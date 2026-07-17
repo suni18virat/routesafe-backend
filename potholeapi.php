@@ -457,7 +457,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 break;
 
             case "getUnassignedPotholes":
-                $sql = "SELECT cid AS id, latitude, longitude FROM complaint WHERE teamid IS NULL OR teamid = '' OR status = 'Pending'";
+                $sql = "SELECT cid AS id, latitude, longitude, description FROM complaint WHERE status = 'Pending' AND (teamid IS NULL OR teamid = '' OR teamid = 0)";
                 $result = mysqli_query($con, $sql);
                 $potholes = [];
                 while ($row = mysqli_fetch_assoc($result)) { $potholes[] = $row; }
