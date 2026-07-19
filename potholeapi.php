@@ -827,7 +827,7 @@ case "getComplaintsByUser":
                 
                 $sql = "SELECT c.cid, c.image, c.description, c.latitude, c.longitude, c.datetime, c.status, 
                                IFNULL(u.name, 'No Reporter') AS name, IFNULL(u.mobile, 'N/A') AS mobile, IFNULL(u.email, 'N/A') AS email,
-                               c.remarks, c.admin_remarks, c.completedimage, c.completeddatetime, c.teamid, c.assigned_date 
+                               c.remarks, c.admin_remarks, c.completedimage, c.completeddatetime, c.teamid, c.assigned_date, c.rating, c.user_feedback 
                         FROM complaint c 
                         LEFT JOIN user u ON c.uid = u.id 
                         LEFT JOIN team t ON c.teamid = t.id
