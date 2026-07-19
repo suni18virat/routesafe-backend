@@ -697,6 +697,7 @@ case "getComplaintsByUser":
                 if (empty($imageName)) {
                     $post_image = isset($_POST['image']) ? $_POST['image'] : '';
                     if (!empty($post_image)) {
+                        $post_image = str_replace(' ', '+', $post_image);
                         $imageName = mysqli_real_escape_string($con, $post_image);
                     }
                 }
@@ -759,6 +760,7 @@ case "getComplaintsByUser":
                 $completed_image = isset($_POST['completed_image']) ? $_POST['completed_image'] : '';
                 $imageName = "";
                 if (!empty($completed_image)) {
+                    $completed_image = str_replace(' ', '+', $completed_image);
                     $imageName = mysqli_real_escape_string($con, $completed_image);
                 }
                 
