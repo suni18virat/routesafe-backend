@@ -389,7 +389,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
  
             case "getTeamByEmail":
                 $email = isset($_POST['email']) ? mysqli_real_escape_string($con, $_POST['email']) : '';
-                $query = "SELECT * FROM team WHERE username = '$email' OR email = '$email'";
+                $team_id = isset($_POST['team_id']) ? mysqli_real_escape_string($con, $_POST['team_id']) : '';
+                
+                $query = "SELECT * FROM team WHERE 1=0";
+                if (!empty($team_id)) {
+                    $query = "SELECT * FROM team WHERE id = '$team_id'";
+                } else if (!empty($email)) {
+                    $query = "SELECT * FROM team WHERE username = '$email' OR email = '$email' OR id = '$email' OR mobile = '$email'";
+                }
+                
                 $result = mysqli_query($con, $query);
                 if ($result) {
                     $row = mysqli_fetch_assoc($result);
@@ -808,13 +816,22 @@ case "getComplaintsByUser":
 
             case "getComplaintsByTeam":
                 $email = isset($_POST['email']) ? mysqli_real_escape_string($con, trim($_POST['email'])) : '';
+                $team_id = isset($_POST['team_id']) ? mysqli_real_escape_string($con, trim($_POST['team_id'])) : '';
+                
+                $whereClause = "1=0";
+                if (!empty($team_id)) {
+                    $whereClause = "t.id = '$team_id'";
+                } else if (!empty($email)) {
+                    $whereClause = "t.username = '$email' OR t.email = '$email' OR t.id = '$email' OR t.mobile = '$email'";
+                }
+                
                 $sql = "SELECT c.cid, c.image, c.description, c.latitude, c.longitude, c.datetime, c.status, 
                                IFNULL(u.name, 'No Reporter') AS name, IFNULL(u.mobile, 'N/A') AS mobile, IFNULL(u.email, 'N/A') AS email,
                                c.remarks, c.admin_remarks, c.completedimage, c.completeddatetime, c.teamid, c.assigned_date 
                         FROM complaint c 
                         LEFT JOIN user u ON c.uid = u.id 
                         LEFT JOIN team t ON c.teamid = t.id
-                        WHERE t.username = '$email' OR t.email = '$email' 
+                        WHERE $whereClause 
                         ORDER BY c.datetime DESC";
                 $result = mysqli_query($con, $sql);
                 $complaints = [];
