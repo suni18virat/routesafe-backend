@@ -689,19 +689,7 @@ case "getComplaintsByUser":
                 if (empty($imageName)) {
                     $post_image = isset($_POST['image']) ? $_POST['image'] : '';
                     if (!empty($post_image)) {
-                        if (preg_match('/^data:image\/(\w+);base64,/', $post_image, $type)) {
-                            $post_image = substr($post_image, strpos($post_image, ',') + 1);
-                            $type = strtolower($type[1]);
-                            if (in_array($type, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                                $decoded = base64_decode($post_image);
-                                if ($decoded !== false) {
-                                    $imageName = "img_" . time() . "_" . uniqid() . "." . $type;
-                                    file_put_contents($uploadDir . $imageName, $decoded);
-                                }
-                            }
-                        } else {
-                            $imageName = mysqli_real_escape_string($con, $post_image);
-                        }
+                        $imageName = mysqli_real_escape_string($con, $post_image);
                     }
                 }
                 $description = isset($_POST['description']) ? mysqli_real_escape_string($con, $_POST['description']) : '';
@@ -763,19 +751,7 @@ case "getComplaintsByUser":
                 $completed_image = isset($_POST['completed_image']) ? $_POST['completed_image'] : '';
                 $imageName = "";
                 if (!empty($completed_image)) {
-                    if (preg_match('/^data:image\/(\w+);base64,/', $completed_image, $type)) {
-                        $completed_image = substr($completed_image, strpos($completed_image, ',') + 1);
-                        $type = strtolower($type[1]);
-                        if (in_array($type, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                            $decoded = base64_decode($completed_image);
-                            if ($decoded !== false) {
-                                $imageName = "resolved_" . time() . "_" . uniqid() . "." . $type;
-                                file_put_contents($uploadDir . $imageName, $decoded);
-                            }
-                        }
-                    } else {
-                        $imageName = mysqli_real_escape_string($con, $completed_image);
-                    }
+                    $imageName = mysqli_real_escape_string($con, $completed_image);
                 }
                 
                 $is_ai_fake_flag = isset($_POST['is_ai_fake']) ? $_POST['is_ai_fake'] : "0";
