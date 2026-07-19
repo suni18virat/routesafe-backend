@@ -74,6 +74,8 @@ if (!$con) {
     exit();
 }
 
+mysqli_query($con, "SET time_zone = '+05:30'");
+
 // ==========================================
 // AUTO-INSTALLATION SCHEMA SETUP
 // Automatically builds all tables on the database if they are not already present.
@@ -118,8 +120,7 @@ $tables = [
         admin_remarks TEXT NULL,
         completed_latitude VARCHAR(50) NULL,
         completed_longitude VARCHAR(50) NULL,
-        completeddatetime VARCHAR(100) NULL,
-        assigned_date DATETIME NULL
+        completeddatetime VARCHAR(100) NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
 
     "support_message" => "CREATE TABLE IF NOT EXISTS support_message (

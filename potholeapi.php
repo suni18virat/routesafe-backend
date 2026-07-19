@@ -34,7 +34,7 @@ if ($check_rating && mysqli_num_rows($check_rating) == 0) {
 }
 
 // Auto-reassign tasks older than 10 days to another team
-$overdue_query = "SELECT cid, teamid FROM complaint WHERE status = 'In Progress' AND assigned_date IS NOT NULL AND assigned_date < DATE_SUB(NOW(), INTERVAL 10 DAY)";
+$overdue_query = "SELECT cid, teamid FROM complaint WHERE (status = 'In Progress' OR status = 'Rejected') AND assigned_date IS NOT NULL AND assigned_date < DATE_SUB(NOW(), INTERVAL 10 DAY)";
 $overdue_result = mysqli_query($con, $overdue_query);
 if ($overdue_result && mysqli_num_rows($overdue_result) > 0) {
     $teams_query = "SELECT id FROM team";
@@ -934,8 +934,7 @@ case "getComplaintsByUser":
                         }
                         if (!empty($row['created_at'])) {
                             try {
-                                $dt = new DateTime($row['created_at'], new DateTimeZone('UTC'));
-                                $dt->setTimezone(new DateTimeZone('Asia/Kolkata'));
+                                $dt = new DateTime($row['created_at']);
                                 $row['created_at'] = $dt->format('M d, Y, h:i A');
                             } catch (Exception $e) {}
                         }
@@ -945,8 +944,14 @@ case "getComplaintsByUser":
                             $timeStr = isset($parts[1]) ? trim($parts[1]) : '';
                             if (!empty($timeStr)) {
                                 try {
-                                    $dtR = new DateTime($timeStr, new DateTimeZone('Asia/Kolkata'));
-                                    $row['reply'] = $text . '|||' . $dtR->format('M d, Y, h:i A');
+                                    if (preg_match('/^[A-Za-z]{3}\s\d{1,2}/', $timeStr)) {
+                                        $formattedTime = $timeStr;
+                                    } else {
+                                        $dtR = new DateTime($timeStr, new DateTimeZone('UTC'));
+                                        $dtR->setTimezone(new DateTimeZone('Asia/Kolkata'));
+                                        $formattedTime = $dtR->format('M d, Y, h:i A');
+                                    }
+                                    $row['reply'] = $text . '|||' . $formattedTime;
                                 } catch (Exception $e) {}
                             }
                         }
