@@ -13,6 +13,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // ... (Your headers)
 
+function readRequestValue($key, $default = '') {
+    if (isset($_POST[$key])) {
+        return $_POST[$key];
+    }
+
+    $rawBody = file_get_contents('php://input');
+    if (!empty($rawBody)) {
+        $decoded = json_decode($rawBody, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && array_key_exists($key, $decoded)) {
+            return $decoded[$key];
+        }
+
+        if (preg_match('/(?:^|[&;])' . preg_quote($key, '/') . '=([^&;]+)/', $rawBody, $matches)) {
+            return urldecode($matches[1]);
+        }
+    }
+
+    return $default;
+}
+
 // Database Connection
 require_once __DIR__ . '/db_config.php';
 
@@ -388,8 +408,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 break;
  
             case "getTeamByEmail":
-                $email = isset($_POST['email']) ? mysqli_real_escape_string($con, $_POST['email']) : '';
-                $team_id = isset($_POST['team_id']) ? mysqli_real_escape_string($con, $_POST['team_id']) : '';
+                $email = mysqli_real_escape_string($con, trim(readRequestValue('email', '')));
+                $team_id = mysqli_real_escape_string($con, trim(readRequestValue('team_id', '')));
                 
                 $query = "SELECT * FROM team WHERE 1=0";
                 if (!empty($team_id)) {
@@ -502,7 +522,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 break;
 
             case "getUnassignedPotholes":
-                $sql = "SELECT cid AS id, latitude, longitude, description FROM complaint WHERE status = 'Pending' AND (teamid IS NULL OR teamid = '' OR teamid = 0)";
+                $sql = "SELECT cid AS id, latitude, longitude, description, status, admin_remarks FROM complaint WHERE status = 'Pending' AND (admin_remarks NOT LIKE '%Auto-Rejected%' OR admin_remarks IS NULL) AND (teamid IS NULL OR teamid = '' OR teamid = 0)";
                 $result = mysqli_query($con, $sql);
                 $potholes = [];
                 while ($row = mysqli_fetch_assoc($result)) { $potholes[] = $row; }
@@ -616,9 +636,21 @@ case "getTaskStatus":
 case "getComplaints":
     $uid = isset($_POST['uid']) ? mysqli_real_escape_string($con, trim($_POST['uid'])) : '';
     if (!empty($uid)) {
-        $query = "SELECT cid AS id, description, status, image, completedimage, datetime AS date, latitude, longitude, completed_latitude, completed_longitude, remarks, admin_remarks, uid, completeddatetime, rating, user_feedback FROM complaint WHERE uid = '$uid' ORDER BY cid DESC";
+        $query = "SELECT c.cid AS id, c.description, c.status, c.image, c.completedimage, c.datetime AS date, c.latitude, c.longitude, c.completed_latitude, c.completed_longitude, c.remarks, c.admin_remarks, c.uid, c.completeddatetime, c.rating, c.user_feedback,
+                         IFNULL(t.name, 'Unassigned') AS team_name,
+                         IFNULL(t.address, '') AS leader_name,
+                         IFNULL(t.mobile, '') AS leader_contact
+                  FROM complaint c
+                  LEFT JOIN team t ON c.teamid = t.id
+                  WHERE c.uid = '$uid' ORDER BY c.cid DESC";
     } else {
-        $query = "SELECT cid AS id, description, status, image, completedimage, datetime AS date, latitude, longitude, completed_latitude, completed_longitude, remarks, admin_remarks, uid, completeddatetime, rating, user_feedback FROM complaint ORDER BY cid DESC";
+        $query = "SELECT c.cid AS id, c.description, c.status, c.image, c.completedimage, c.datetime AS date, c.latitude, c.longitude, c.completed_latitude, c.completed_longitude, c.remarks, c.admin_remarks, c.uid, c.completeddatetime, c.rating, c.user_feedback,
+                         IFNULL(t.name, 'Unassigned') AS team_name,
+                         IFNULL(t.address, '') AS leader_name,
+                         IFNULL(t.mobile, '') AS leader_contact
+                  FROM complaint c
+                  LEFT JOIN team t ON c.teamid = t.id
+                  ORDER BY c.cid DESC";
     }
     $result = mysqli_query($con, $query);
     $incidents = [];
@@ -656,9 +688,13 @@ case "getComplaintsByUser":
     }
     $query = "SELECT c.cid AS id, c.description, c.status, c.image, c.completedimage, c.datetime AS date, 
                      c.latitude, c.longitude, c.completed_latitude, c.completed_longitude, 
-                     c.remarks, c.admin_remarks, c.uid, c.completeddatetime, c.rating, c.user_feedback
+                     c.remarks, c.admin_remarks, c.uid, c.completeddatetime, c.rating, c.user_feedback,
+                     IFNULL(t.name, 'Unassigned') AS team_name,
+                     IFNULL(t.address, '') AS leader_name,
+                     IFNULL(t.mobile, '') AS leader_contact
               FROM complaint c
               INNER JOIN user u ON c.uid = u.id
+              LEFT JOIN team t ON c.teamid = t.id
               WHERE u.mobile = '$mobile' OR u.email = '$mobile'
               ORDER BY c.cid DESC";
     $result = mysqli_query($con, $query);
@@ -714,7 +750,7 @@ case "getComplaintsByUser":
                 $status = 'Pending';
                 $admin_remarks = '';
                 
-                if ($is_ai_fake_flag === "1" || preg_match('/(fake|non-road|selfie|indoor|screen|furniture|room|church|building|sky|cross|tower)/i', $description)) {
+                if ($is_ai_fake_flag === "1" || preg_match('/(fake|non-road|selfie|indoor|screen|furniture|room|church|building|sky|cross|tower|laptop|computer|keyboard|desk|monitor|mouse|office)/i', $description)) {
                     $status = 'Rejected';
                     $admin_remarks = 'Auto-Rejected: Invalid Image Uploaded';
                 }
@@ -766,7 +802,9 @@ case "getComplaintsByUser":
                 
                 $is_ai_fake_flag = isset($_POST['is_ai_fake']) ? $_POST['is_ai_fake'] : "0";
                 if ($is_ai_fake_flag === "1") {
-                    echo json_encode(["error" => 1, "success" => false, "message" => "Invalid Completion Proof! Contractor field teams must upload a clear photo of the repaired road surface."]);
+                    $query = "UPDATE complaint SET status = 'Pending', teamid = NULL, remarks = 'Auto-Rejected: Invalid Completion Proof', admin_remarks = 'Auto-Rejected: Invalid Completion Proof' WHERE cid = '$cid'";
+                    mysqli_query($con, $query);
+                    echo json_encode(["error" => 1, "success" => false, "message" => "Invalid Completion Proof! Reverting task to unassigned."]);
                     mysqli_close($con);
                     exit;
                 }
@@ -785,9 +823,21 @@ case "getComplaintsByUser":
             case "getComplaints":
     $uid = isset($_POST['uid']) ? mysqli_real_escape_string($con, trim($_POST['uid'])) : '';
     if (!empty($uid)) {
-        $query = "SELECT cid AS id, description, status, image, completedimage, remarks, admin_remarks, datetime AS date, uid, completeddatetime FROM complaint WHERE uid = '$uid' ORDER BY cid DESC";
+        $query = "SELECT c.cid AS id, c.description, c.status, c.image, c.completedimage, c.remarks, c.admin_remarks, c.datetime AS date, c.uid, c.completeddatetime,
+                         IFNULL(t.name, 'Unassigned') AS team_name,
+                         IFNULL(t.address, '') AS leader_name,
+                         IFNULL(t.mobile, '') AS leader_contact
+                  FROM complaint c
+                  LEFT JOIN team t ON c.teamid = t.id
+                  WHERE c.uid = '$uid' ORDER BY c.cid DESC";
     } else {
-        $query = "SELECT cid AS id, description, status, image, completedimage, remarks, admin_remarks, datetime AS date, uid, completeddatetime FROM complaint ORDER BY cid DESC";
+        $query = "SELECT c.cid AS id, c.description, c.status, c.image, c.completedimage, c.remarks, c.admin_remarks, c.datetime AS date, c.uid, c.completeddatetime,
+                         IFNULL(t.name, 'Unassigned') AS team_name,
+                         IFNULL(t.address, '') AS leader_name,
+                         IFNULL(t.mobile, '') AS leader_contact
+                  FROM complaint c
+                  LEFT JOIN team t ON c.teamid = t.id
+                  ORDER BY c.cid DESC";
     }
     $result = mysqli_query($con, $query);
     $incidents = [];
@@ -870,15 +920,15 @@ case "getComplaintsByUser":
                 break;
 
             case "sendSupportMessage":
-                $user_mobile = isset($_POST['user_mobile']) ? mysqli_real_escape_string($con, trim($_POST['user_mobile'])) : '';
-                $message = isset($_POST['message']) ? mysqli_real_escape_string($con, trim($_POST['message'])) : '';
+                $user_mobile = mysqli_real_escape_string($con, trim(readRequestValue('user_mobile', '')));
+                $message = mysqli_real_escape_string($con, trim(readRequestValue('message', '')));
                 if (empty($user_mobile) || empty($message)) {
                     echo json_encode(["error" => 1, "success" => false, "message" => "Fields cannot be blank"]);
                     mysqli_close($con);
                     exit;
                 }
                 
-                $image = isset($_POST['image']) ? $_POST['image'] : '';
+                $image = readRequestValue('image', '');
                 $imageName = "";
                 if (!empty($image)) {
                     if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
@@ -907,20 +957,32 @@ case "getComplaintsByUser":
                 break;
 
             case "getSupportMessages":
-                $user_mobile = isset($_POST['user_mobile']) ? mysqli_real_escape_string($con, trim($_POST['user_mobile'])) : '';
+                $user_mobile = mysqli_real_escape_string($con, trim(readRequestValue('user_mobile', '')));
                 if (!empty($user_mobile)) {
-                    $query = "SELECT * FROM support_message WHERE user_mobile = '$user_mobile' ORDER BY created_at ASC";
+                    $query = "SELECT s.*, 
+                                     COALESCE(u.name, t.name, 'Citizen/Contractor') AS user_name,
+                                     CASE WHEN t.id IS NOT NULL THEN 'TEAM' ELSE 'CITIZEN' END AS sender_type
+                              FROM support_message s
+                              LEFT JOIN user u ON s.user_mobile = u.mobile OR s.user_mobile = u.email OR s.user_mobile = u.username
+                              LEFT JOIN team t ON s.user_mobile = t.mobile OR s.user_mobile = t.email OR s.user_mobile = t.username OR s.user_mobile = t.name OR s.user_mobile = t.address
+                              WHERE s.user_mobile = '$user_mobile'
+                                 OR u.mobile = '$user_mobile'
+                                 OR u.email = '$user_mobile'
+                                 OR u.username = '$user_mobile'
+                                 OR u.name = '$user_mobile'
+                                 OR t.mobile = '$user_mobile'
+                                 OR t.email = '$user_mobile'
+                                 OR t.username = '$user_mobile'
+                                 OR t.name = '$user_mobile'
+                                 OR t.address = '$user_mobile'
+                              ORDER BY s.created_at ASC";
                 } else {
                     $query = "SELECT s.*, 
                                      COALESCE(u.name, t.name, 'Citizen/Contractor') AS user_name,
-                                     CASE 
-                                         WHEN u.id IS NOT NULL THEN 'User'
-                                         WHEN t.id IS NOT NULL THEN 'Team'
-                                         ELSE 'User'
-                                     END AS sender_type
+                                     CASE WHEN t.id IS NOT NULL THEN 'TEAM' ELSE 'CITIZEN' END AS sender_type
                               FROM support_message s 
-                              LEFT JOIN user u ON s.user_mobile = u.mobile 
-                              LEFT JOIN team t ON (s.user_mobile = t.mobile OR s.user_mobile = t.username OR s.user_mobile = t.email)
+                              LEFT JOIN user u ON s.user_mobile = u.mobile OR s.user_mobile = u.email OR s.user_mobile = u.username
+                              LEFT JOIN team t ON s.user_mobile = t.mobile OR s.user_mobile = t.email OR s.user_mobile = t.username OR s.user_mobile = t.name OR s.user_mobile = t.address
                               ORDER BY s.created_at DESC";
                 }
                 $result = mysqli_query($con, $query);
@@ -963,8 +1025,8 @@ case "getComplaintsByUser":
                 break;
 
             case "replySupportMessage":
-                $id = isset($_POST['id']) ? mysqli_real_escape_string($con, trim($_POST['id'])) : '';
-                $reply = isset($_POST['reply']) ? mysqli_real_escape_string($con, trim($_POST['reply'])) : '';
+                $id = mysqli_real_escape_string($con, trim(readRequestValue('id', '')));
+                $reply = mysqli_real_escape_string($con, trim(readRequestValue('reply', '')));
                 if (empty($id) || empty($reply)) {
                     echo json_encode(["error" => 1, "success" => false, "message" => "Fields cannot be blank"]);
                     mysqli_close($con);
