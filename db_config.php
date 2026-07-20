@@ -1,4 +1,6 @@
 <?php
+error_reporting(0);
+ini_set('display_errors', 0);
 // Prevent direct access to db_config.php to protect credentials if accessed via browser directly
 if (basename($_SERVER['SCRIPT_FILENAME']) === 'db_config.php') {
     header("Content-Type: application/json");
