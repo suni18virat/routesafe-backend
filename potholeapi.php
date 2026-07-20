@@ -752,7 +752,7 @@ case "getComplaintsByUser":
                 $status = 'Pending';
                 $admin_remarks = '';
                 
-                if ($is_ai_fake_flag === "1" || preg_match('/(fake|non-road|selfie|indoor|screen|furniture|room|church|building|sky|cross|tower|laptop|computer|keyboard|desk|monitor|mouse|office)/i', $description)) {
+                if ($is_ai_fake_flag === "1" || preg_match('/(fake|non-road|selfie|indoor|screen|furniture|room|church|building|sky|cross|tower|laptop|computer|keyboard|desk|monitor|mouse|office|ground|clear|no damage|no pothole|without damage)/i', $description)) {
                     $status = 'Rejected';
                     $admin_remarks = 'Auto-Rejected: Invalid Image Uploaded';
                 }
