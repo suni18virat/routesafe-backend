@@ -965,12 +965,11 @@ case "getComplaintsByUser":
                                      COALESCE(u.name, t.name, 'Citizen/Contractor') AS user_name,
                                      CASE WHEN t.id IS NOT NULL THEN 'TEAM' ELSE 'CITIZEN' END AS sender_type
                               FROM support_message s
-                              LEFT JOIN user u ON s.user_mobile = u.mobile OR s.user_mobile = u.email OR s.user_mobile = u.username
+                              LEFT JOIN user u ON s.user_mobile = u.mobile OR s.user_mobile = u.email
                               LEFT JOIN team t ON s.user_mobile = t.mobile OR s.user_mobile = t.email OR s.user_mobile = t.username OR s.user_mobile = t.name OR s.user_mobile = t.address
                               WHERE s.user_mobile = '$user_mobile'
                                  OR u.mobile = '$user_mobile'
                                  OR u.email = '$user_mobile'
-                                 OR u.username = '$user_mobile'
                                  OR u.name = '$user_mobile'
                                  OR t.mobile = '$user_mobile'
                                  OR t.email = '$user_mobile'
@@ -983,7 +982,7 @@ case "getComplaintsByUser":
                                      COALESCE(u.name, t.name, 'Citizen/Contractor') AS user_name,
                                      CASE WHEN t.id IS NOT NULL THEN 'TEAM' ELSE 'CITIZEN' END AS sender_type
                               FROM support_message s 
-                              LEFT JOIN user u ON s.user_mobile = u.mobile OR s.user_mobile = u.email OR s.user_mobile = u.username
+                              LEFT JOIN user u ON s.user_mobile = u.mobile OR s.user_mobile = u.email
                               LEFT JOIN team t ON s.user_mobile = t.mobile OR s.user_mobile = t.email OR s.user_mobile = t.username OR s.user_mobile = t.name OR s.user_mobile = t.address
                               ORDER BY s.created_at DESC";
                 }
